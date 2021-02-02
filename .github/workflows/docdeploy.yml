@@ -1,0 +1,16 @@
+name: Deploy documentation
+
+# Controls when the action will run. 
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+
+jobs:
+  docdeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/julia-docdeploy@v1.1.0
