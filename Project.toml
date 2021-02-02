@@ -1,0 +1,11 @@
+name = "RenoiseOSC"
+uuid = "7e67a06f-bc16-486c-bec5-3b6767787fd6"
+authors = ["Danny Robinson <dannyrobinson@gmx.com>"]
+version = "0.1.0"
+
+[deps]
+OpenSoundControl = "2ff8ee2d-9747-4b2b-b699-45d473b7b9df"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+
+[compat]
+julia = "^1"
