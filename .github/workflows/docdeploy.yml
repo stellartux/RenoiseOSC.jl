@@ -14,3 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/julia-docdeploy@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} 
