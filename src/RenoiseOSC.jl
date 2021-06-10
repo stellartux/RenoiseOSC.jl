@@ -3,7 +3,7 @@ RenoiseOSC.jl is a collection of wrappers around the [Renoise OSC API functions]
 """
 module RenoiseOSC
 
-export luaeval, 
+export luaeval,
     tempo,
     editmode,
     octave,
@@ -108,7 +108,7 @@ end
 Evaluate a Lua expression inside Renoise's scripting environment.
 
 # Example
-    
+
 ```julia
 luaeval("renoise.song().transport.bpm = 132")
 ```
@@ -572,6 +572,8 @@ Stop playback
 stop() = postmessage("transport/stop")
 
 """
+    panic()
+
 Stop playback and reset all playing instruments and DSPs
 """
 panic() = postmessage("transport/panic")
@@ -608,7 +610,7 @@ Turn on the note with the velocity.
 Default to the currently selected instrument and track.
 """
 function noteon(pitch::Integer, velocity::Integer; instrument::Integer=-1, track::Integer=-1)
-    postmessage("trigger/note_on", "iiii", Int32.(instrument, track, pitch, velocity)...)
+    postmessage("trigger/note_on", "iiii", Int32.((instrument, track, pitch, velocity))...)
 end
 
 """
@@ -617,7 +619,7 @@ end
 Turn off the note
 """
 function noteoff(pitch::Integer; instrument::Integer=-1, track::Integer=-1)
-    postmessage("trigger/note_off", "iii", Int32.(instrument, track, pitch)...)
+    postmessage("trigger/note_off", "iii", Int32.((instrument, track, pitch))...)
 end
 
 end # module

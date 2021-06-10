@@ -14,7 +14,7 @@ Run the following commands in Julia to install RenoiseOSC.
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/stellartux/RenoiseOSC.jl")
+Pkg.add(RenoiseOSC)
 ```
 
 ## Use
