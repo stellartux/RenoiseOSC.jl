@@ -1,9 +1,14 @@
 """
-RenoiseOSC.jl is a collection of wrappers around the [Renoise OSC API functions](https://tutorials.renoise.com/wiki/Open_Sound_Control)
+
+    RenoiseOSC
+
+[RenoiseOSC.jl](https://stellartux.github.io/RenoiseOSC.jl/dev/)
+is a collection of wrappers around the [Renoise OSC API functions](https://tutorials.renoise.com/wiki/Open_Sound_Control).
 """
 module RenoiseOSC
 
 export luaeval,
+    bpm,
     tempo,
     editmode,
     octave,
@@ -21,6 +26,7 @@ export luaeval,
     volume,
     volumedb,
     linesperbeat,
+    lpb,
     metronome,
     metronomeprecount,
     quantization,
@@ -31,6 +37,7 @@ export luaeval,
     slotunmute,
     trigger,
     ticksperline,
+    tpl,
     bypass,
     setparam,
     mute,
@@ -48,6 +55,8 @@ export luaeval,
     loopblockmovebackwards,
     loopblockmoveforwards,
     looppattern,
+    loopsequence,
+    panic,
     start,
     stop,
     resume,
@@ -63,6 +72,7 @@ using Sockets
 const settings = Dict{String,Union{Sockets.InetAddr,UDPSocket}}("server" => Sockets.InetAddr(ip"127.0.0.1", 8000))
 
 """
+
     sethost!(host::Union{AbstractString,Sockets.IPAddr})
 
 Set the host of the Renoise OSC server. Default value is `ip"127.0.0.1"`.
@@ -80,6 +90,7 @@ Sockets.InetAddr{Sockets.IPv4}(ip"127.0.0.1", 8000)
 sethost!(host::Union{AbstractString,IPAddr}) = settings["server"] = Sockets.InetAddr(host, settings["server"].port)
 
 """
+
     setport!(port::Integer)
 
 Set the port of the Renoise OSC server. Default value is `8000`.
@@ -87,6 +98,7 @@ Set the port of the Renoise OSC server. Default value is `8000`.
 setport!(port::Integer) = settings["server"] = Sockets.InetAddr(settings["server"].host, port)
 
 """
+
     setaddress!(host::Union{AbstractString,Sockets.IPAddr}, port::Integer)
 
 Set the host and the port of the OSC Server.
@@ -103,6 +115,7 @@ function postmessage(path::AbstractString, argtypes::AbstractString="", args...)
 end
 
 """
+
     luaeval(expr::AbstractString)
 
 Evaluate a Lua expression inside Renoise's scripting environment.
@@ -116,49 +129,57 @@ luaeval("renoise.song().transport.bpm = 132")
 luaeval(expr::AbstractString) = postmessage("evaluate", "s", expr)
 
 """
+
     tempo(bpm::Integer)
 
-Set the song's current bpm `[32:999]`
+Set the song's [current bpm](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters) value.
+The valid tempo range is `32:999` for `<v3.4`, `20:999` for `>=v3.4`.
 """
 function tempo(bpm::Integer)
-    if 32 <= bpm <= 999
+    if 20 <= bpm <= 999
         postmessage("song/bpm", "i", Int32(bpm))
     else
-        @warn "Can't set bpm to $(bpm), bpm must be in 32:999"
+        @warn "Can't set bpm to $(bpm), bpm must be in 20:999"
     end
 end
 
+bpm = tempo
+
 """
+
     editmode(on::Bool)
 
-Set the song's global edit mode on or off
+Set the song's global [edit mode](https://tutorials.renoise.com/wiki/Recording_and_Editing_Notes#Edit_Mode) on or off.
 """
 editmode(on::Bool) = postmessage("song/edit/mode", on ? "T" : "F")
 
 """
+
     octave(oct::Integer)
 
-Sets the song's current octave [0:8]
+Sets the song's [current octave](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters) `0:8`.
 """
 function octave(oct::Integer)
     if oct in 0:8
         postmessage("song/edit/octave", "i", Int32(oct))
     else
-        @warn "Can't set octave to $(oct), octave must be in 0:8"
+        @warn "Can't set octave to $(oct), octave must be in `0:8`"
     end
 end
 
 """
+
     patternfollow(on::Bool)
 
-Enable or disable global pattern follow mode
+Enable or disable the global [pattern follow](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Controls) mode.
 """
 patternfollow(on::Bool) = postmessage("song/edit/pattern_follow", on ? "T" : "F")
 
 """
+
     editstep(step::Integer)
 
-Set the song's current edit step `[0:8]`
+Set the song's current [edit step](https://tutorials.renoise.com/wiki/Pattern_Editor#Pattern_Editor_Control_Panel) `[0:8]`.
 """
 function editstep(step::Integer)
     if step in 0:8
@@ -168,42 +189,46 @@ function editstep(step::Integer)
     end
 end
 
+
 """
+
     setmacroparam(param::Integer, value::Real; instrument::Integer = -1)
 
-Set `instrument`'s macro parameter value `[0.0:1.0]`.
-Default to the currently selected instrument.
+Set `instrument`'s [macro](https://tutorials.renoise.com/wiki/Sampler#Macros) parameter value `0.0:1.0`.
+Defaults to the currently selected instrument and macro 1.
 """
 function setmacroparam(param::Integer, value::Real; instrument::Integer=-1)
-    postmessage("song/instrument/$(instrument)/$(param)", "d", Float64(value))
+    postmessage("song/instrument/$(instrument)/macro$(param)", "d", Float64(value))
 end
 
 """
+
     monophonic(mono::Bool; instrument::Integer=-1)
 
-Enable or disable `instrument`'s mono mode.
+Enable or disable `instrument`'s [mono mode](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties).
 Default to the currently selected instrument.
 """
 monophonic(mono::Bool; instrument::Integer=-1) = postmessage("song/instrument/$(instrument)/monophonic", mono ? "T" : "F")
 
 """
+
     monophonicglide(glide::Integer; instrument::Integer=-1)
 
-Set `instrument`'s glide amount `[0:255]`.
+Set `instrument`'s [glide amount](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) `0:255`.
 Default to the currently selected instrument.
 """
 function monophonicglide(glide::Integer; instrument::Integer=-1)
     if glide in 0:255
         postmessage("song/instrument/$(instrument)/monophonic_glide", "i", Int32(glide))
     else
-        @warn "Can't set monophonic glide to $(glide), glide must be in 0:255"
+        @warn "Can't set monophonic glide to $(glide), glide must be in `0:255`"
     end
 end
 
 """
     phraseplayback(mode::AbstractString; instrument::Integer=-1)
 
-Set `instrument`'s phraseplayback mode `["Off", "Program", "Keymap"]`
+Set `instrument`'s [phrase playback mode](https://tutorials.renoise.com/wiki/Phrase_Editor#Phrase_Controls) `["Off", "Program", "Keymap"]`
 Default to the currently selected instrument.
 """
 function phraseplayback(mode::AbstractString; instrument::Integer=-1)
@@ -215,9 +240,10 @@ function phraseplayback(mode::AbstractString; instrument::Integer=-1)
 end
 
 """
+
     phraseprogram(program::Integer; instrument::Integer=-1)
 
-Set `instrument`'s phrase program number [0:127]
+Set `instrument`'s [phrase program number](https://tutorials.renoise.com/wiki/Phrase_Editor#Phrase_Controls) `0:127`.
 Default to the currently selected instrument.
 """
 function phraseprogram(program::Integer; instrument::Integer=-1)
@@ -229,9 +255,10 @@ function phraseprogram(program::Integer; instrument::Integer=-1)
 end
 
 """
+
     quantizationmode(mode::AbstractString; instrument::Integer=-1)
 
-Set `instrument`'s quantization method, one of `"None"`, `"Line"`, `"Beat"`, `"Bar"`.
+Set `instrument`'s [quantization method](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties), one of `"None"`, `"Line"`, `"Beat"`, `"Bar"`.
 Default to the currently selected instrument.
 """
 function quantizationmode(mode::AbstractString; instrument::Integer=-1)
@@ -243,12 +270,14 @@ function quantizationmode(mode::AbstractString; instrument::Integer=-1)
 end
 
 """
+
     scalekey(key::AbstractString; instrument::Integer=-1)
 
-Set `instrument`'s note scaling key.
+Set `instrument`'s [note scaling](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) key `["C", "C#"..., "B"]`.
 Default to the currently selected instrument.
 """
 function scalekey(key::AbstractString; instrument::Integer=-1)
+    key = get(key, Dict("Db" => "C#", "Eb" => "D#", "Gb" => "F#", "Ab" => "G#", "Bb" => "A#"), key)
     if key in Set(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"])
         postmessage("song/instrument/$(instrument)/scale_key", "s", key)
     else
@@ -257,9 +286,10 @@ function scalekey(key::AbstractString; instrument::Integer=-1)
 end
 
 """
+
     scalemode(mode::AbstractString; instrument::Integer=-1)
 
-Set `instrument`'s note scaling mode.
+Set `instrument`'s [note scaling](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) mode.
 Default to the currently selected instrument.
 """
 function scalemode(mode::AbstractString; instrument::Integer=-1)
@@ -267,9 +297,10 @@ function scalemode(mode::AbstractString; instrument::Integer=-1)
 end
 
 """
+
     transpose(pitch::Integer; instrument::Integer=-1)
 
-Set `instrument`'s global pitch transpose `[-120:120]``.
+Set `instrument`'s [global pitch transpose](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) `-120:120`.
 Default to the currently selected instrument.
 """
 function transpose(pitch::Integer; instrument::Integer=-1)
@@ -281,9 +312,10 @@ function transpose(pitch::Integer; instrument::Integer=-1)
 end
 
 """
+
     volume(level::Real; instrument::Integer=-1)
 
-Set `instrument`'s global volume to `level` `[0.0:db2lin(6)]≈[0.0:2.0]`.
+Set `instrument`'s [global volume](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) to `level` `[0.0:db2lin(6)]≈[0.0:2.0]`.
 Default to the currently selected instrument.
 """
 function volume(level::Real; instrument::Integer=-1)
@@ -291,9 +323,10 @@ function volume(level::Real; instrument::Integer=-1)
 end
 
 """
+
     volumedb(level::Real; instrument::Integer=-1)
 
-Set `instrument`'s global volume to `level` in decibels `[0.0:6.0]`.
+Set `instrument`'s [global volume](https://tutorials.renoise.com/wiki/Instruments#Instrument_Properties) to `level` in decibels `[0.0:6.0]`.
 Default to the currently selected instrument.
 """
 function volumedb(level::Real; instrument::Integer=-1)
@@ -301,9 +334,10 @@ function volumedb(level::Real; instrument::Integer=-1)
 end
 
 """
+
     linesperbeat(lpb::Integer)
 
-Set the song's current lines per beat [1:255]
+Set the song's current [lines per beat](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters) `1:255`.
 """
 function linesperbeat(lpb::Integer)
     if lpb in 1:255
@@ -313,31 +347,37 @@ function linesperbeat(lpb::Integer)
     end
 end
 
+lpb = linesperbeat
+
 """
+
     metronome(on::Bool)
 
-Enable or disable the global metronome
+Enable or disable the [metronome](https://tutorials.renoise.com/wiki/Transport_Panel).
 """
 metronome(on::Bool) = postmessage("song/record/metronome", on ? "T" : "F")
 
 """
+
     metronomeprecount(on::Bool)
 
-Enable or disable the global metronome precount
+Enable or disable the global [metronome](https://tutorials.renoise.com/wiki/Transport_Panel) precount.
 """
 metronomeprecount(on::Bool) = postmessage("song/record/metronome_precount", on ? "T" : "F")
 
 """
+
     quantization(on::Bool)
 
-Enable or disable the global record quantization
+Enable or disable the global [record quantization](https://tutorials.renoise.com/wiki/Pattern_Editor#Pattern_Editor_Control_Panel).
 """
 quantization(on::Bool) = postmessage("song/record/quantization", on ? "T" : "F")
 
 """
+
     quantizationstep(step::Integer)
 
-Set the global record quantization step [1:32]
+Set the global [record quantization](https://tutorials.renoise.com/wiki/Pattern_Editor#Pattern_Editor_Control_Panel) step `1:32`.
 """
 function quantizationstep(step::Integer)
     if step in 1:32
@@ -348,46 +388,52 @@ function quantizationstep(step::Integer)
 end
 
 """
+
     scheduleadd(sequence::Integer)
 
-Add a scheduled sequence playback pos
+Add a scheduled [sequence playback position](https://tutorials.renoise.com/wiki/Pattern_Sequencer#Triggering_Patterns).
 """
 scheduleadd(sequence::Integer) = postmessage("song/sequence/schedule_add", "i", Int32(sequence))
 
 """
+
     scheduleset(sequence::Integer)
 
-Replace the current sequence playback pos
+Replace the current scheduled [sequence playback](https://tutorials.renoise.com/wiki/Pattern_Sequencer#Triggering_Patterns) position.
 """
 scheduleset(sequence::Integer) = postmessage("song/sequence/schedule_set", "i", Int32(sequence))
 
 """
+
     slotmute(track::Integer, sequence::Integer)
     slotmute(mute::Bool, track::Integer, sequence::Integer)
 
-Mute the given track, sequence slot in the matrix.
+Mute the [specified track at the specified sequence slot](https://tutorials.renoise.com/wiki/Pattern_Matrix#Muting_Blocks) in the matrix.
 """
 slotmute(track::Integer, sequence::Integer) = postmessage("song/sequence/slot_mute", "ii", Int32(track), Int32(sequence))
-slotmute(mute::Bool, track::Integer, sequence::Integer) = postmessage("song/sequence/slot_$(mute ? "" : "un")mute", "ii", Int32(track), Int32(sequence))
+slotmute(mute::Bool, track::Integer, sequence::Integer) = (mute ? slotmute : slotunmute)(track, sequence)
 
 """
+
     slotunmute(track::Integer, sequence::Integer)
 
-Mute the given track, sequence slot in the matrix.
+Unmute the [specified track at the specified sequence slot](https://tutorials.renoise.com/wiki/Pattern_Matrix#Muting_Blocks) in the matrix.
 """
 slotunmute(track::Integer, sequence::Integer) = postmessage("song/sequence/slot_unmute", "ii", Int32(track), Int32(sequence))
 
 """
+
     trigger(sequence::Integer)
 
-Set playback pos to the specified sequence pos
+Set playback pos to the specified [sequence position](https://tutorials.renoise.com/wiki/Pattern_Sequencer#Triggering_Patterns).
 """
 trigger(sequence::Integer) = postmessage("song/sequence/trigger", "i", Int32(sequence))
 
 """
+
     ticksperline(tpl::Integer)
 
-Set the song's current ticks per line [1:16]
+Set the song's current [ticks per line](https://tutorials.renoise.com/wiki/Song_Options#Playback_Options) `1:16`.
 """
 function ticksperline(tpl::Integer)
     if tpl in 1:16
@@ -397,10 +443,14 @@ function ticksperline(tpl::Integer)
     end
 end
 
+tpl = ticksperline
+
 """
+
     bypass(bypassed::Bool; track::Integer=-1, device::Integer=-1)
 
-Set the bypass status of a device, set `true` to bypass the device.
+Enable or disable the [bypassing](https://tutorials.renoise.com/wiki/Effect_Chains#Common_Effect_Layout_and_Controls)
+of an [effect device](https://tutorials.renoise.com/wiki/Effect_Chains), set `true` to bypass the device.
 When unspecified, `track` and `device` default to the currently selected track and device.
 """
 function bypass(bypassed::Bool; track::Integer=-1, device::Integer=-1)
@@ -408,9 +458,11 @@ function bypass(bypassed::Bool; track::Integer=-1, device::Integer=-1)
 end
 
 """
+
     setparam(key::Union{AbstractString,Integer}, value::Real; track::Integer=-1, device::Integer=-1)
 
-Set the parameter of any device by its name or index. `value` is clamped between `0.0` and `1.0`.
+Set the parameter of any [effect device](https://tutorials.renoise.com/wiki/Effect_Chains)
+by its name or index. `value` is clamped between `0.0` and `1.0`.
 When unspecified, track and device default to the currently selected track and device.
 """
 function setparam(key::Integer, value::Real; track::Integer=-1, device::Integer=-1)
@@ -421,31 +473,39 @@ function setparam(key::AbstractString, value::Real; track::Integer=-1, device::I
 end
 
 """
+
     mute(muted::Bool = true; track::Integer = -1)
 
-Mute or unmute the given track. Default to the currently selected track.
+[Mute](https://tutorials.renoise.com/wiki/Pattern_Editor#Muting_Tracks) the given track.
+Default to the currently selected track.
 """
 mute(muted::Bool=true; track::Integer=-1) = postmessage("song/track/$(track)/$(muted ? "" : "un")mute")
 
 """
+
     unmute(; track::Integer=-1)
     mute(false; track::Integer=-1)
 
-Unmute the given track. Default to the currently selected track.
+[Unmute](https://tutorials.renoise.com/wiki/Pattern_Editor#Muting_Tracks) the given track.
+Default to the currently selected track.
 """
 unmute(; track::Integer=-1) = postmessage("song/track/$(track)/unmute")
 
 """
+
     solo(; track::Integer)
 
-Toggle solo for the given track. Default to the currently selected track.
+Toggle [solo](https://tutorials.renoise.com/wiki/Pattern_Editor#Muting_Tracks) for the given track.
+Default to the currently selected track.
 """
 solo(; track::Integer=-1) = postmessage("song/track/$(track)/solo")
 
 """
+
     outputdelay(δt::Real; track::Integer)
 
-Set the given track's output delay in milliseconds [-100:100]. Default to the currently selected track.
+Set the given track's [pre-FX output delay](https://tutorials.renoise.com/wiki/Effect_Chains#Pre_and_Post_Mixer_Effects) in milliseconds [-100:100].
+Default to the currently selected track.
 """
 function outputdelay(δt::Real; track::Integer=-1)
     if -100.0 <= δt <= 100.0
@@ -456,9 +516,10 @@ function outputdelay(δt::Real; track::Integer=-1)
 end
 
 """
+
     postfxpanning(pan::Integer; track::Integer=-1)
 
-Set `track`'s post-FX panning, `[-50:50]` left to right.
+Set `track`'s [post-FX panning](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept), `-50:50` left to right.
 Default to the currently selected track.
 """
 function postfxpanning(pan::Integer; track::Integer=-1)
@@ -470,9 +531,10 @@ function postfxpanning(pan::Integer; track::Integer=-1)
 end
 
 """
+
     postfxvolume(level::Real; track::Integer=-1)
 
-Set `track`s post-FX volume, `[0.0:db2lin(6.0)]`, -Inf:+6dB.
+Set `track`s [post-FX volume](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept), `0.0:db2lin(6.0)`, `-Inf:+6dB`.
 Default to the currently selected track.
 """
 function postfxvolume(level::Real; track::Integer=-1)
@@ -480,9 +542,10 @@ function postfxvolume(level::Real; track::Integer=-1)
 end
 
 """
+
     postfxvolumedb(level::Real; track::Integer=-1)
 
-Set `track`s post-FX volume in decibels, `[-200.0:3.0]`.
+Set `track`s [post-FX volume](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept) in decibels, `-200.0:3.0`.
 Default to the currently selected track.
 """
 function postfxvolumedb(level::Real; track::Integer=-1)
@@ -490,9 +553,10 @@ function postfxvolumedb(level::Real; track::Integer=-1)
 end
 
 """
+
     prefxpanning(pan::Integer; track::Integer=-1)
 
-Set `track`'s pre-FX panning, `[-50:50]` left to right.
+Set `track`'s [pre-FX panning](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept), `[-50:50]` left to right.
 Default to the currently selected track.
 """
 function prefxpanning(pan::Integer; track::Integer=-1)
@@ -504,9 +568,10 @@ function prefxpanning(pan::Integer; track::Integer=-1)
 end
 
 """
+
     prefxvolume(level::Real; track::Integer=-1)
 
-Set `track`s pre-FX volume, `[0.0:db2lin(6.0)]`, -Inf:+6dB.
+Set `track`s [pre-FX volume](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept), `[0.0:db2lin(6.0)]`, `-Inf:+6dB`.
 Default to the currently selected track.
 """
 function prefxvolume(level::Real; track::Integer=-1)
@@ -514,64 +579,83 @@ function prefxvolume(level::Real; track::Integer=-1)
 end
 
 """
+
     prefxvolumedb(level::Real; track::Integer=-1)
 
-Set `track`s pre-FX volume in decibels, `[-200.0:3.0]`.
+Set `track`s [pre-FX volume](https://tutorials.renoise.com/wiki/Mixer#Pre.2FPost_Volume_and_Panning_Concept) in decibels, `-200.0:3.0`.
 Default to the currently selected track.
 """
 prefxvolumedb(level::Real; track::Integer=-1) = postmessage("song/track/$(track)/prefx_volume_db", "d", clamp(Float64(level), -200.0, 3.0))
 
 """
+
     prefxwidth(width::Real; track::Integer=-1)
 
-Set `track`'s pre-FX width `[0.0:1.0]`.
+Set `track`'s [pre-FX width](https://tutorials.renoise.com/wiki/Effect_Chains#Pre_and_Post_Mixer_Effects) `0.0:1.0`.
 Default to the currently selected track.
 """
 prefxwidth(width::Real; track::Integer=-1) = postmessage("song/track/$(track)/prefx_width", "d", clamp(Float64(width), 0.0, 1.0))
 
 """
+
     loopblock(loop::Bool)
 
-Enable or disable pattern block loop.
+Enable or disable pattern [block loop](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters).
 """
 loopblock(loop::Bool) = postmessage("/transport/loop/block", loop ? "T" : "F")
 
 """
+
     loopblockmovebackwards()
 
-Move the block loop one segment backwards
+Move the [block loop](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters) one segment backwards.
 """
 loopblockmovebackwards() = postmessage("transport/loop/block_move_backwards")
 
 """
+
     loopblockmoveforwards()
 
-Move the block loop one segment forwards
+Move the [block loop](https://tutorials.renoise.com/wiki/Transport_Panel#Song_Parameters) one segment forwards.
 """
 loopblockmoveforwards() = postmessage("transport/loop/block_move_forwards")
 
 """
+
     looppattern(loop::Bool)
 
-Enable or disable looping the current pattern.
+Enable or disable [looping the current pattern](https://tutorials.renoise.com/wiki/Transport_Panel).
 """
 looppattern(loop::Bool) = postmessage("transport/loop/pattern", loop ? "T" : "F")
 
 """
+
+    loopsequence()
+
+Disable or set a new [sequence loop](https://tutorials.renoise.com/wiki/Pattern_Sequencer#Looping_Patterns) range.
+"""
+function loopsequence(start::Integer, stop::Integer = start)
+    postmessage("transport/loop/sequence", "ii", Int32(start), Int32(stop))
+end
+
+"""
+
     start()
 
-Start playback or restart playing the current pattern
+Start song playback or restart playing the current pattern.
 """
 start() = postmessage("transport/start")
 
 """
+
     stop()
 
-Stop playback
+Stop song playback.
 """
 stop() = postmessage("transport/stop")
 
 """
+
     panic()
 
 Stop playback and reset all playing instruments and DSPs
@@ -579,13 +663,16 @@ Stop playback and reset all playing instruments and DSPs
 panic() = postmessage("transport/panic")
 
 """
+
     resume()
 
-Continue playback
+Continue playback. Called `continue` in the Renoise docs, but this name
+can't be used as `continue` is a reserved word in Julia.
 """
 resume() = postmessage("transport/continue")
 
 """
+
     midievent(portid::UInt8, status::UInt8, data1::UInt8, data2::UInt8)
     midievent(event::Union{UInt32,UInt64,Array{<:Integer},NTuple{4,<:Integer}})
 
@@ -604,6 +691,7 @@ midievent(event::UInt64) = postmessage("trigger/midi", "h", event)
 midievent(event::UInt32) = postmessage("trigger/midi", "i", event)
 
 """
+
     noteon(pitch::Integer, velocity::Integer; instrument::Integer=-1, track::Integer=-1)
 
 Turn on the note with the velocity.
@@ -614,9 +702,10 @@ function noteon(pitch::Integer, velocity::Integer; instrument::Integer=-1, track
 end
 
 """
+
     noteoff(pitch::Integer, velocity::Integer; instrument::Integer=-1, track::Integer=-1)
 
-Turn off the note
+Trigger a [note off](https://tutorials.renoise.com/wiki/Playing_Notes_with_the_Computer_Keyboard#Note_Off).
 """
 function noteoff(pitch::Integer; instrument::Integer=-1, track::Integer=-1)
     postmessage("trigger/note_off", "iii", Int32.((instrument, track, pitch))...)

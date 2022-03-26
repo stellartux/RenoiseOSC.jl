@@ -69,3 +69,11 @@ loopblockmovebackwards
 loopblockmoveforwards
 looppattern
 ```
+
+## v3.4
+
+Below are functions added in v3.4.
+
+```@doc
+loopsequence
+```
